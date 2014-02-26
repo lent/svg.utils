@@ -211,6 +211,9 @@ SVG.extend(SVG.Line, {
 
 SVG.extend(SVG.Path, {
 	getPathArray: function() {
+		if(this.array) {
+			return this.array.value;
+		}
 		var data = [];
 		var length = this.node.pathSegList.numberOfItems;
 		for(var i = 0; i < length; i++) {

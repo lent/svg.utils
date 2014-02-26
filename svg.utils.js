@@ -23,6 +23,7 @@
  */
 
 var
+epsilon = 10e-12,
 //abscissae and weights for performing Legendre-Gauss quadrature integral approximation
 abscissas = [
 	[  0.5773502691896257645091488],
@@ -253,20 +254,18 @@ arcTransform = function(a_rh, a_rv, a_offsetrot, largeArcFlag, sweepFlag, endpoi
 	var r = ["A", a_rh, a_rv, a_offsetrot, largeArcFlag, sweepFlag, endpoint.x, endpoint.y];
 	return r;
 },
+//only used for solveQuadratic/Cubic
+addRoot = function(root, roots, count, min, max) {
+	if(min === undefined || root >= min-epsilon && root <= max+epsilon)
+		roots[count++] = root<min?min: (root>max?max:root);
+	return count;
+},
 solveQuadratic = function(a, b, c, roots, min, max) {
-	var unbound = min === undefined,
-		count = 0;
+	var count = 0;
 
-	function add(root) {
-		if(unbound || root >= min && root <= max)
-			roots[count++] = root;
-		return count;
-	}
-
-	var epsilon = 10e-12;
 	if(Math.abs(a) < epsilon) {
 		if(Math.abs(b) >= epsilon) {
-			return add(-c / b);
+			return addRoot(-c / b, roots, count, min, max);
 		}
 		return Math.abs(c) < epsilon ? -1 : 0;
 	}
@@ -277,9 +276,9 @@ solveQuadratic = function(a, b, c, roots, min, max) {
 		return 0;
 	}
 	var s = p2 > q ? Math.sqrt(p2 - q) : 0;
-	add(s - p);
+	count = addRoot(s - p, roots, count, min, max);
 	if(s > 0) {
-		add(-s - p);
+		addRoot(-s - p, roots, count, min, max);
 	}
 	return count;
 },
@@ -292,18 +291,10 @@ solveCubic = function(v, coord, val, roots, min, max) {
 		b = 3 * (c2 - c1) - c,
 		a = p2 - p1 - c - b,
 		d = p1 - val;
-	var epsilon = 10e-12;
 	if(Math.abs(a) < epsilon)
 		return solveQuadratic(b, c, d, roots, min, max);
 
-	var unbound = min === undefined,
-		count = 0;
-
-	function add(root) {
-		if(unbound || root >= min && root <= max)
-			roots[count++] = root;
-		return count;
-	}
+	var count = 0;
 
 	b /= a;
 	c /= a;
@@ -316,23 +307,23 @@ solveCubic = function(v, coord, val, roots, min, max) {
 	b /= 3;
 	if(Math.abs(D) < epsilon) {
 		if(Math.abs(q) < epsilon)
-			return add(-b);
+			return addRoot(-b, roots, count, min, max);
 		var sqp = Math.sqrt(p),
 			snq = q > 0 ? 1 : -1;
-		add(-snq * 2 * sqp - b);
-		return add(snq * sqp - b);
+		addRoot(-snq * 2 * sqp - b, roots, count, min, max);
+		return addRoot(snq * sqp - b, roots, count, min, max);
 	}
 	if(D < 0) {
 		var sqp = Math.sqrt(p),
 			phi = Math.acos(q / (sqp * sqp * sqp)) / 3,
 			t = -2 * sqp,
 			o = 2 * Math.PI / 3;
-		add(t * Math.cos(phi) - b);
-		add(t * Math.cos(phi + o) - b);
-		return add(t * Math.cos(phi - o) - b);
+		addRoot(t * Math.cos(phi) - b, roots, count, min, max);
+		addRoot(t * Math.cos(phi + o) - b, roots, count, min, max);
+		return addRoot(t * Math.cos(phi - o) - b, roots, count, min, max);
 	}
 	var A = (q > 0 ? -1 : 1) * Math.pow(Math.abs(q) + Math.sqrt(D), 1 / 3);
-	return add(A + p / A - b);
+	return addRoot(A + p / A - b, roots, count, min, max);
 },
 getSignedLineDistance = function(px, py, vx, vy, x, y) {
 	vx -= px;
@@ -1328,7 +1319,7 @@ Path = {
 		}
 		var path = [["M", vs[0][0], vs[0][1]]];
 		for(var i = 0; i<vs.length; i++) {
-			path.push(["C"].concat(vs.slice(2)));
+			path.push(["C"].concat(vs[i].slice(2)));
 		}
 		return path;
 	}
@@ -1346,5 +1337,6 @@ SVG.utils = {
 	transformAbsolutePathArray:     Path.transformAbsolutePathArray,
 	toRelative:                     Path.toRelative,
 	toAbsolute:                     Path.toAbsolute,
-	toCurve:                        Path.toCurve
+	toCurve:                        Path.toCurve,
+	fromCurve:                      Path.fromCurve
 };
